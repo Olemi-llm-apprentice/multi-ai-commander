@@ -5,6 +5,10 @@
 
   const adapters = new Map();
 
+  function logDebug(event, detail) {
+    chrome.runtime.sendMessage({ type: 'debug:log', event, detail }).catch(() => {});
+  }
+
   const utils = {
     setTextValue(element, value) {
       if (!element) {
@@ -38,7 +42,8 @@
         return;
       }
       el.click();
-    }
+    },
+    logDebug
   };
 
   function registerAdapter(id, adapter) {
@@ -73,6 +78,7 @@
           await adapter.submitPrompt(message.prompt, utils);
           sendResponse({ ok: true });
         } catch (error) {
+          logDebug('adapter:error', { targetId: message.targetId, error: error?.message });
           sendResponse({ ok: false, error: error?.message || 'unknown_error' });
         }
       })();
@@ -82,6 +88,8 @@
 
   window.MultiAICommander = {
     registerAdapter,
-    utils
+    utils,
+    log: logDebug
   };
 })();
+

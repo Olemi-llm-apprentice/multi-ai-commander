@@ -1,7 +1,8 @@
 const state = {
   targets: [],
   settings: null,
-  statuses: {}
+  statuses: {},
+  debugLogs: []
 };
 
 const ui = {
@@ -14,7 +15,12 @@ const ui = {
   settingsButton: document.getElementById('open-settings'),
   settingsDialog: document.getElementById('settings-dialog'),
   settingVoice: document.getElementById('setting-voice'),
-  settingDelay: document.getElementById('setting-delay')
+  settingDelay: document.getElementById('setting-delay'),
+  settingDebug: document.getElementById('setting-debug'),
+  debugSection: document.getElementById('debug-section'),
+  debugOutput: document.getElementById('debug-output'),
+  debugRefresh: document.getElementById('debug-refresh'),
+  debugClear: document.getElementById('debug-clear')
 };
 
 let recognition = null;
@@ -26,12 +32,24 @@ function init() {
   attachEvents();
   loadSettings();
   chrome.runtime.onMessage.addListener((message) => {
-    if (message?.type === 'prompt:status') {
+    if (!message?.type) {
+      return;
+    }
+    if (message.type === 'prompt:status') {
       state.statuses[message.targetId] = {
         status: message.status,
         reason: message.reason
       };
       renderStatus();
+      return;
+    }
+    if (message.type === 'debug:entry') {
+      handleDebugEntry(message.entry);
+      return;
+    }
+    if (message.type === 'debug:cleared') {
+      state.debugLogs = [];
+      renderDebugLogs();
     }
   });
 }
@@ -46,6 +64,16 @@ function attachEvents() {
   ui.voiceButton.addEventListener('click', toggleVoice);
   ui.settingsButton.addEventListener('click', () => ui.settingsDialog.showModal());
   ui.settingsDialog.addEventListener('close', onSettingsDialogClose);
+  ui.debugRefresh.addEventListener('click', () => {
+    loadDebugLogs();
+  });
+  ui.debugClear.addEventListener('click', async () => {
+    try {
+      await chrome.runtime.sendMessage({ type: 'debug:clear' });
+    } catch (error) {
+      ui.progress.textContent = `Failed to clear logs: ${error.message}`;
+    }
+  });
 }
 
 async function loadSettings() {
@@ -59,9 +87,13 @@ async function loadSettings() {
     if (typeof state.settings.sendDelayMs !== 'number') {
       state.settings.sendDelayMs = 700;
     }
+    state.settings.debugLogging = Boolean(state.settings.debugLogging);
     renderTargets();
     applySettingsToUI();
     setupVoiceRecognition();
+    if (state.settings.debugLogging) {
+      loadDebugLogs();
+    }
   } catch (error) {
     ui.progress.textContent = `Failed to load settings: ${error.message}`;
   }
@@ -85,8 +117,19 @@ function renderTargets() {
 function applySettingsToUI() {
   ui.settingVoice.checked = Boolean(state.settings.voiceInput);
   ui.settingDelay.value = state.settings.sendDelayMs;
+  ui.settingDebug.checked = Boolean(state.settings.debugLogging);
+  updateDebugVisibility();
   if (state.settings.voiceInput && recognition) {
     ui.voiceStatus.textContent = 'Voice input ready';
+  }
+}
+
+function updateDebugVisibility() {
+  const enabled = Boolean(state.settings?.debugLogging);
+  ui.debugSection.classList.toggle('hidden', !enabled);
+  if (!enabled) {
+    state.debugLogs = [];
+    renderDebugLogs();
   }
 }
 
@@ -195,19 +238,19 @@ function setupVoiceRecognition() {
   recognition.onstart = () => {
     recognizing = true;
     ui.voiceStatus.textContent = 'Listening...';
-    ui.voiceButton.textContent = '笆 Stop';
+    ui.voiceButton.textContent = '隨・｣ｰ Stop';
   };
 
   recognition.onend = () => {
     recognizing = false;
-    ui.voiceButton.textContent = '痔 Voice';
+    ui.voiceButton.textContent = '﨟樒濫 Voice';
     ui.voiceStatus.textContent = state.settings.voiceInput ? 'Voice input ready' : '';
   };
 
   recognition.onerror = (event) => {
     recognizing = false;
     ui.voiceStatus.textContent = `Error: ${event.error}`;
-    ui.voiceButton.textContent = '痔 Voice';
+    ui.voiceButton.textContent = '﨟樒濫 Voice';
   };
 
   recognition.onresult = (event) => {
@@ -270,10 +313,58 @@ function onSettingsDialogClose() {
   }
   state.settings.voiceInput = ui.settingVoice.checked;
   state.settings.sendDelayMs = Number(ui.settingDelay.value) || 0;
+  const debugBefore = Boolean(state.settings.debugLogging);
+  state.settings.debugLogging = ui.settingDebug.checked;
   persistSettings();
+  updateDebugVisibility();
+  if (state.settings.debugLogging) {
+    if (!debugBefore) {
+      loadDebugLogs();
+    }
+  }
   if (state.settings.voiceInput && recognition && !recognizing) {
     ui.voiceStatus.textContent = 'Voice input ready';
   } else if (!state.settings.voiceInput && !recognizing) {
     ui.voiceStatus.textContent = '';
   }
 }
+
+async function loadDebugLogs() {
+  if (!state.settings?.debugLogging) {
+    return;
+  }
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'debug:get' });
+    if (response?.ok) {
+      state.debugLogs = Array.isArray(response.logs) ? response.logs : [];
+      renderDebugLogs();
+    }
+  } catch (error) {
+    ui.progress.textContent = `Failed to load logs: ${error.message}`;
+  }
+}
+
+function handleDebugEntry(entry) {
+  if (!state.settings?.debugLogging || !entry) {
+    return;
+  }
+  state.debugLogs.push(entry);
+  if (state.debugLogs.length > 200) {
+    state.debugLogs.shift();
+  }
+  renderDebugLogs();
+}
+
+function renderDebugLogs() {
+  if (!state.settings?.debugLogging) {
+    ui.debugOutput.textContent = '';
+    return;
+  }
+  const lines = state.debugLogs.map((entry) => {
+    const detail = typeof entry.detail === 'object' ? JSON.stringify(entry.detail) : String(entry.detail ?? '');
+    return `${entry.timestamp || ''}  ${entry.event || ''}\n${detail}`.trim();
+  });
+  ui.debugOutput.textContent = lines.join('\n\n');
+  ui.debugOutput.scrollTop = ui.debugOutput.scrollHeight;
+}
+

@@ -4,10 +4,10 @@ This repository contains a Chrome extension prototype that broadcasts prompts to
 
 ## Structure
 
-- `extension/manifest.json` — Manifest definition
-- `extension/background.js` — Background service worker controlling tab lifecycle and broadcast queue
-- `extension/sidepanel/` — Side panel UI, settings, and speech input handling
-- `extension/content/` — Site-specific adapters for ChatGPT / Manus / Grok
+- `extension/manifest.json` - Manifest definition
+- `extension/background.js` - Background service worker controlling tab lifecycle and broadcast queue
+- `extension/sidepanel/` - Side panel UI, settings, and speech input handling
+- `extension/content/` - Site-specific adapters for ChatGPT / Manus / Grok
 
 ## Setup
 
@@ -18,12 +18,14 @@ This repository contains a Chrome extension prototype that broadcasts prompts to
 
 ## Notes
 
-- Manus/Grok change their DOM frequently; adjust selectors under `extension/content/*.js` if the automation breaks
-- If background tab submission feels slow, tune the delay in `extension/background.js`
-- Speech input relies on Chrome's Web Speech API; the button will be disabled if microphone access is blocked
+- Enable debug logging from the side panel settings to capture runtime events.
+- Manus/Grok change their DOM frequently; adjust selectors under `extension/content/*.js` if the automation breaks.
+- If background tab submission feels slow, tune the delay in `extension/background.js`.
+- Speech input relies on Chrome's Web Speech API; the button will be disabled if microphone access is blocked.
 
 ## Future work
 
-- Retry UI and inline response summaries
-- Additional adapters (Claude, Google AI Studio, etc.)
-- Prompt templates, tagging, and richer configuration
+- Retry UI and inline response summaries.
+- Additional adapters (Claude, Google AI Studio, etc.).
+- Prompt templates, tagging, and richer configuration.
+

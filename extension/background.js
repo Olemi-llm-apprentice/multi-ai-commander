@@ -1,34 +1,76 @@
-const LLM_TARGETS = {
+﻿const LLM_TARGETS = {
   chatgpt: {
     id: 'chatgpt',
     label: 'ChatGPT',
-    newChatUrl: 'https://chat.openai.com/',
-    urlPatterns: ['https://chat.openai.com/*']
+    newChatUrl: 'https://chatgpt.com/',
+    urlPatterns: ['https://chat.openai.com/*', 'https://chatgpt.com/*'],
+    requiresFreshTab: true
   },
   manus: {
     id: 'manus',
     label: 'Manus',
-    newChatUrl: 'https://app.manus.ai/',
-    urlPatterns: ['https://app.manus.ai/*', 'https://*.manus.app/*']
+    newChatUrl: 'https://manus.im/app',
+    urlPatterns: [
+      'https://manus.im/*',
+      'https://*.manus.im/*',
+      'https://app.manus.ai/*',
+      'https://*.manus.ai/*',
+      'https://*.manus.app/*'
+    ],
+    requiresFreshTab: true
   },
   grok: {
     id: 'grok',
     label: 'Grok',
     newChatUrl: 'https://grok.com/',
-    urlPatterns: ['https://grok.com/*', 'https://*.grok.com/*', 'https://*.x.ai/*']
+    urlPatterns: [
+      'https://grok.com/*',
+      'https://*.grok.com/*',
+      'https://grok.x.ai/*',
+      'https://*.grok.x.ai/*',
+      'https://chat.x.ai/*',
+      'https://*.x.ai/*'
+    ],
+    requiresFreshTab: true
   }
+};
+
+const TARGET_SCRIPT_MAP = {
+  chatgpt: 'content/chatgpt.js',
+  manus: 'content/manus.js',
+  grok: 'content/grok.js'
+};
+
+const DOM_READY_SELECTORS = {
+  chatgpt: 'div.ProseMirror, textarea#prompt-textarea, div[contenteditable="true"]',
+  manus: 'textarea[data-testid="prompt-input"], div[contenteditable="true"]',
+  grok: 'div.tiptap.ProseMirror, textarea[placeholder*="何を知りたい"], div[contenteditable="true"]'
+};
+
+const DOM_READY_TIMEOUTS = {
+  chatgpt: 15000,
+  manus: 60000,
+  grok: 60000
 };
 
 const DEFAULT_SETTINGS = {
   enabledTargets: Object.keys(LLM_TARGETS),
   sendDelayMs: 700,
-  voiceInput: false
+  voiceInput: false,
+  debugLogging: false
 };
+
+let runtimeSettings = { ...DEFAULT_SETTINGS };
+const debugLogs = [];
+const DEBUG_LOG_LIMIT = 200;
 
 chrome.runtime.onInstalled.addListener(async () => {
   const stored = await chrome.storage.sync.get('settings');
   if (!stored.settings) {
     await chrome.storage.sync.set({ settings: DEFAULT_SETTINGS });
+    runtimeSettings = { ...DEFAULT_SETTINGS };
+  } else {
+    runtimeSettings = normaliseSettings(stored.settings);
   }
 });
 
@@ -69,6 +111,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       const nextSettings = normaliseSettings(message.settings);
       await chrome.storage.sync.set({ settings: nextSettings });
+      runtimeSettings = nextSettings;
+      if (runtimeSettings.debugLogging) {
+        addDebugLog('settings:update', { debugLogging: true });
+      }
       sendResponse({ ok: true });
     })();
     return true;
@@ -80,6 +126,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse(result);
     })();
     return true;
+  }
+
+  if (message.type === 'debug:get') {
+    sendResponse({ ok: true, logs: getDebugSnapshot() });
+    return false;
+  }
+
+  if (message.type === 'debug:clear') {
+    clearDebugLogs();
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (message.type === 'debug:log') {
+    addDebugLog(message.event || 'external', {
+      detail: message.detail,
+      sender: buildSenderInfo(sender)
+    });
+    sendResponse({ ok: true });
+    return false;
   }
 });
 
@@ -93,19 +159,29 @@ async function handleBroadcast(message) {
   const delayMs = typeof options?.sendDelayMs === 'number' ? options.sendDelayMs : settings.sendDelayMs;
   const statusUpdates = [];
 
+  addDebugLog('broadcast:init', {
+    promptLength: prompt.length,
+    targets: targetIds
+  });
+
   for (const targetId of targetIds) {
     const target = LLM_TARGETS[targetId];
     if (!target) {
       const update = { targetId, status: 'skipped', reason: 'unknown_target' };
       statusUpdates.push(update);
       broadcastStatus(update);
+      addDebugLog('broadcast:target:skipped', update);
       continue;
     }
 
     broadcastStatus({ targetId, status: 'starting' });
+    addDebugLog('broadcast:target:start', { targetId });
 
     try {
       const tab = await ensureTabForTarget(target, windowId);
+      addDebugLog('broadcast:target:tab', { targetId, tabId: tab.id, url: tab.url });
+      await waitForDomReady(tab.id, targetId);
+      await injectContentScripts(tab.id, targetId);
       await waitForAdapter(tab.id, targetId);
       const response = await chrome.tabs.sendMessage(tab.id, {
         type: 'llm-commander:submit',
@@ -119,10 +195,12 @@ async function handleBroadcast(message) {
       };
       statusUpdates.push(update);
       broadcastStatus(update);
+      addDebugLog('broadcast:target:result', update);
     } catch (error) {
       const update = { targetId, status: 'failed', reason: error.message };
       statusUpdates.push(update);
       broadcastStatus(update);
+      addDebugLog('broadcast:target:error', update);
     }
 
     if (delayMs > 0) {
@@ -130,6 +208,7 @@ async function handleBroadcast(message) {
     }
   }
 
+  addDebugLog('broadcast:complete', { results: statusUpdates });
   return { ok: true, updates: statusUpdates };
 }
 
@@ -138,10 +217,20 @@ function broadcastStatus(update) {
 }
 
 async function ensureTabForTarget(target, requestedWindowId) {
-  const existingTabs = await chrome.tabs.query({ url: target.urlPatterns });
-  const candidate = existingTabs.find((tab) => !requestedWindowId || tab.windowId === requestedWindowId);
-  if (candidate) {
-    return candidate;
+  let tabToUse = null;
+  if (!target.requiresFreshTab) {
+    const existingTabs = await chrome.tabs.query({ url: target.urlPatterns });
+    tabToUse = existingTabs.find((tab) => {
+      if (requestedWindowId && tab.windowId !== requestedWindowId) {
+        return false;
+      }
+      return isValidTargetUrl(target.id, tab.url || '');
+    });
+  }
+
+  if (tabToUse) {
+    addDebugLog('tab:reuse', { targetId: target.id, tabId: tabToUse.id });
+    return tabToUse;
   }
 
   const createProperties = {
@@ -152,8 +241,59 @@ async function ensureTabForTarget(target, requestedWindowId) {
     createProperties.windowId = requestedWindowId;
   }
   const createdTab = await chrome.tabs.create(createProperties);
+  addDebugLog('tab:create', { targetId: target.id, tabId: createdTab.id, url: target.newChatUrl });
   await waitForTabComplete(createdTab.id);
   return createdTab;
+}
+
+async function waitForDomReady(tabId, targetId) {
+  const selector = DOM_READY_SELECTORS[targetId];
+  if (!selector) {
+    return;
+  }
+  const maxWaitMs = DOM_READY_TIMEOUTS[targetId] ?? 15000;
+  const intervalMs = 400;
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId, allFrames: true },
+        func: (sel) => {
+          try {
+            return Boolean(document.querySelector(sel));
+          } catch (error) {
+            return false;
+          }
+        },
+        args: [selector]
+      });
+      if (results?.some((frame) => frame.result)) {
+        addDebugLog('dom:ready', { targetId, tabId });
+        return;
+      }
+    } catch (error) {
+      addDebugLog('dom:probe:error', { targetId, tabId, error: error.message });
+    }
+    await delay(intervalMs);
+  }
+  throw new Error(`dom_timeout:${targetId}`);
+}
+
+async function injectContentScripts(tabId, targetId) {
+  const files = ['content/shared.js'];
+  const targetScript = TARGET_SCRIPT_MAP[targetId];
+  if (targetScript) {
+    files.push(targetScript);
+  }
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files
+    });
+    addDebugLog('adapter:inject', { targetId, tabId });
+  } catch (error) {
+    addDebugLog('adapter:inject:error', { targetId, tabId, error: error.message });
+  }
 }
 
 async function waitForAdapter(tabId, targetId) {
@@ -165,13 +305,17 @@ async function waitForAdapter(tabId, targetId) {
         targetId
       });
       if (response?.ready) {
+        if (attempt > 0) {
+          addDebugLog('adapter:ready', { targetId, tabId, attempts: attempt + 1 });
+        }
         return;
       }
     } catch (error) {
-      // retry after delay
+      addDebugLog('adapter:ping:error', { targetId, tabId, error: error.message });
     }
     await delay(400);
   }
+  addDebugLog('adapter:timeout', { targetId, tabId });
   throw new Error(`adapter_timeout:${targetId}`);
 }
 
@@ -194,7 +338,9 @@ async function waitForTabComplete(tabId) {
 
 async function getCurrentSettings() {
   const stored = await chrome.storage.sync.get('settings');
-  return normaliseSettings(stored.settings);
+  const settings = normaliseSettings(stored.settings);
+  runtimeSettings = settings;
+  return settings;
 }
 
 function normaliseSettings(input) {
@@ -209,7 +355,79 @@ function normaliseSettings(input) {
     settings.sendDelayMs = DEFAULT_SETTINGS.sendDelayMs;
   }
   settings.voiceInput = Boolean(settings.voiceInput);
+  settings.debugLogging = Boolean(settings.debugLogging);
   return settings;
+}
+
+function addDebugLog(event, detail) {
+  if (!runtimeSettings.debugLogging) {
+    return;
+  }
+  const entry = {
+    id: generateId(),
+    event,
+    detail,
+    timestamp: new Date().toISOString()
+  };
+  debugLogs.push(entry);
+  if (debugLogs.length > DEBUG_LOG_LIMIT) {
+    debugLogs.shift();
+  }
+  chrome.runtime.sendMessage({ type: 'debug:entry', entry }).catch(() => {});
+  console.debug('[Multi AI Commander]', event, detail);
+}
+
+function getDebugSnapshot() {
+  return debugLogs.slice();
+}
+
+function clearDebugLogs() {
+  debugLogs.length = 0;
+  chrome.runtime.sendMessage({ type: 'debug:cleared' }).catch(() => {});
+}
+
+function buildSenderInfo(sender) {
+  if (!sender) {
+    return null;
+  }
+  return {
+    id: sender.id,
+    frameId: sender.frameId,
+    url: sender.url,
+    tabId: sender.tab?.id
+  };
+}
+
+function generateId() {
+  if (crypto?.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function isValidTargetUrl(targetId, url) {
+  if (!url) {
+    return false;
+  }
+  try {
+    const parsed = new URL(url);
+    switch (targetId) {
+      case 'chatgpt':
+        return parsed.hostname.includes('chatgpt.com') || parsed.hostname.includes('chat.openai.com');
+      case 'manus':
+        return parsed.hostname.includes('manus.im') && parsed.pathname.startsWith('/app');
+      case 'grok':
+        return (
+          parsed.hostname.includes('grok.com') ||
+          parsed.hostname.includes('grok.x.ai') ||
+          parsed.hostname.includes('chat.x.ai')
+        );
+      default:
+        return true;
+    }
+  } catch (error) {
+    return false;
+  }
 }
 
 function delay(ms) {

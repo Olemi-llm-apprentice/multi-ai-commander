@@ -9,13 +9,13 @@
   <body>
     <header>
       <h1>Multi AI Commander</h1>
-      <button id="open-settings" title="Open settings">⚙️</button>
+      <button id="open-settings" title="Open settings">隨槫遜・ｸ繝ｻ/button>
     </header>
     <main>
       <section class="prompt-section">
         <textarea id="prompt" rows="6" placeholder="Type your prompt here (voice input supported)"></textarea>
         <div class="prompt-controls">
-          <button id="voice-button" class="secondary" title="Start voice input">🎤 Voice</button>
+          <button id="voice-button" class="secondary" title="Start voice input">﨟樒濫 Voice</button>
           <span id="voice-status" class="voice-status"></span>
         </div>
       </section>
@@ -27,6 +27,16 @@
         <button id="send-button" class="primary">Send</button>
         <div id="progress" class="progress"></div>
       </section>
+      <section id="debug-section" class="debug-section hidden">
+        <div class="debug-header">
+          <h2>Debug Log</h2>
+          <div class="debug-actions">
+            <button id="debug-refresh" class="secondary">Refresh</button>
+            <button id="debug-clear" class="secondary">Clear</button>
+          </div>
+        </div>
+        <pre id="debug-output" class="debug-output"></pre>
+      </section>
     </main>
     <dialog id="settings-dialog">
       <form method="dialog">
@@ -37,6 +47,9 @@
         <label class="inline">
           Delay between sends (ms)
           <input type="number" id="setting-delay" min="0" step="100" />
+        </label>
+        <label class="inline">
+          <input type="checkbox" id="setting-debug" /> Enable debug logging
         </label>
         <menu>
           <button value="cancel">Cancel</button>
@@ -53,3 +66,4 @@
     <script type="module" src="index.js"></script>
   </body>
 </html>
+

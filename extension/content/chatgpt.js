@@ -10,12 +10,14 @@
     'textarea[data-id="root"]',
     'textarea[data-id="prompt-textarea"]',
     'textarea[placeholder*="message"]',
+    'div[data-testid="conversation-turn"] textarea',
     'textarea'
   ];
 
   const SEND_SELECTORS = [
     'button[data-testid="send-button"]',
-    'button[aria-label*="Send"]'
+    'button[aria-label*="Send"]',
+    'button[aria-label*="送信"]'
   ];
 
   function findInput() {
@@ -38,7 +40,29 @@
     return null;
   }
 
+  async function ensureNewChat() {
+    const newChatButtonSelectors = [
+      'button[data-testid="new-conversation-button"]',
+      'a[href="/new"]'
+    ];
+    for (const selector of newChatButtonSelectors) {
+      const button = document.querySelector(selector);
+      if (button) {
+        button.click();
+        await waitForIdle();
+        break;
+      }
+    }
+  }
+
+  async function waitForIdle() {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
   registerAdapter('chatgpt', {
+    async ensureReady() {
+      await ensureNewChat();
+    },
     isReady() {
       return Boolean(findInput());
     },
@@ -56,7 +80,7 @@
       } else {
         utils.simulateEnter(input);
       }
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      await waitForIdle();
     }
   });
 })();

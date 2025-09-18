@@ -11,10 +11,16 @@
   ],
   "host_permissions": [
     "https://chat.openai.com/*",
+    "https://chatgpt.com/*",
+    "https://manus.im/*",
+    "https://*.manus.im/*",
     "https://app.manus.ai/*",
-    "https://*.manus.app/*",
+    "https://*.manus.ai/*",
     "https://grok.com/*",
     "https://*.grok.com/*",
+    "https://grok.x.ai/*",
+    "https://*.grok.x.ai/*",
+    "https://chat.x.ai/*",
     "https://*.x.ai/*"
   ],
   "background": {
@@ -36,19 +42,35 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://chat.openai.com/*"],
+      "matches": [
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*"
+      ],
       "js": ["content/shared.js", "content/chatgpt.js"],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://app.manus.ai/*", "https://*.manus.app/*"],
+      "matches": [
+        "https://manus.im/*",
+        "https://*.manus.im/*",
+        "https://app.manus.ai/*",
+        "https://*.manus.ai/*"
+      ],
       "js": ["content/shared.js", "content/manus.js"],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://grok.com/*", "https://*.grok.com/*", "https://*.x.ai/*"],
+      "matches": [
+        "https://grok.com/*",
+        "https://*.grok.com/*",
+        "https://grok.x.ai/*",
+        "https://*.grok.x.ai/*",
+        "https://chat.x.ai/*",
+        "https://*.x.ai/*"
+      ],
       "js": ["content/shared.js", "content/grok.js"],
       "run_at": "document_idle"
     }
   ]
 }
+

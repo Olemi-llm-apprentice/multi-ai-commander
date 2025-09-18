@@ -1,31 +1,53 @@
-# Multi AI Commander (Chrome extension prototype)
+﻿# Multi AI Commander
 
-This repository contains a Chrome extension prototype that broadcasts prompts to multiple LLM tabs from a single side panel.
+## Overview (English)
+Multi AI Commander is a Chrome extension that lets you broadcast a single prompt to multiple LLM services (ChatGPT, Manus, Grok) from one side panel. It automates tab creation, waits for each target to become ready, injects the adapter, and reports per-target status back to the panel.
 
-## Structure
+### Key Features
+- Parallel prompt submission to multiple LLM targets with automatic tab management
+- Side panel UI for target selection, live status updates, and an optional debug log stream
+- Speech-to-text input powered by Chrome Web Speech (can be toggled on/off)
+- Adapter-based DOM automation that can be tuned via `extension/config/targets.js`
 
-- `extension/manifest.json` - Manifest definition
-- `extension/background.js` - Background service worker controlling tab lifecycle and broadcast queue
-- `extension/sidepanel/` - Side panel UI, settings, and speech input handling
-- `extension/content/` - Site-specific adapters for ChatGPT / Manus / Grok
+### Installation
+1. Open `chrome://extensions/` and enable **Developer mode**.
+2. Click **Load unpacked** and select the `extension` folder from this repository.
+3. Make sure you are signed in to each LLM target in Chrome before broadcasting prompts.
 
-## Setup
+### Usage
+1. Open the side panel from the toolbar icon or with `Ctrl + Shift + Y`.
+2. Type or dictate your prompt, then choose the target LLMs to broadcast to.
+3. Press **Send**. The background service worker will queue and submit the prompt for each target, showing real-time status updates.
+4. (Optional) Enable debug logging in the settings dialog to inspect detailed automation events.
 
-1. Open `chrome://extensions/`, enable Developer mode
-2. Click "Load unpacked" and select the `extension` folder in this project
-3. Ensure you are logged in to each target LLM site, then use `Ctrl+Shift+Y` to toggle the side panel
-4. Enter a prompt, choose target LLMs, and send; the extension creates or reuses tabs in the current window and submits in the background
+### Development Notes
+- Target selectors and timing can be customised in `extension/config/targets.js`.
+- The shared injector script lives at `extension/content/injector.js` and handles DOM automation per target.
+- Icons are located under `extension/icons/` and referenced from `manifest.json`.
 
-## Notes
+---
 
-- Enable debug logging from the side panel settings to capture runtime events.
-- Manus/Grok change their DOM frequently; adjust selectors under `extension/content/*.js` if the automation breaks.
-- If background tab submission feels slow, tune the delay in `extension/background.js`.
-- Speech input relies on Chrome's Web Speech API; the button will be disabled if microphone access is blocked.
+## 概要 (日本語)
+Multi AI Commander は、1 つのサイドパネルから複数の LLM（ChatGPT / Manus / Grok）へ同時にプロンプトを送信できる Chrome 拡張機能です。バックグラウンドでタブの生成や DOM の準備待ち、アダプタのインジェクト、結果通知まで自動化します。
 
-## Future work
+### 主な機能
+- 複数の LLM へ並列にプロンプトを送信し、タブの生成・再利用を自動化
+- ターゲット選択、進行状況表示、デバッグログ表示を備えたサイドパネル UI
+- Chrome Web Speech を利用した音声入力（設定で有効／無効を切り替え可能）
+- `extension/config/targets.js` から調整できるアダプタベースの DOM 自動化
 
-- Retry UI and inline response summaries.
-- Additional adapters (Claude, Google AI Studio, etc.).
-- Prompt templates, tagging, and richer configuration.
+### インストール手順
+1. `chrome://extensions/` を開き、**デベロッパーモード**をオンにします。
+2. **パッケージ化されていない拡張機能を読み込む**をクリックし、本リポジトリの `extension` フォルダを選択します。
+3. ブロードキャスト対象の LLM それぞれに Chrome 上でログインしておきます。
 
+### 使い方
+1. ツールバーアイコンまたは `Ctrl + Shift + Y` でサイドパネルを開きます。
+2. プロンプトを入力（または音声入力）し、送信したいターゲットを選択します。
+3. **Send** を押すと、バックグラウンドが順番に自動送信し、ステータスがリアルタイムに更新されます。
+4. 必要に応じて設定ダイアログからデバッグログを有効化し、詳細なイベントを確認できます。
+
+### 開発メモ
+- ターゲットごとのセレクタやタイミングは `extension/config/targets.js` で調整可能です。
+- DOM 自動化のロジックは共通インジェクタ `extension/content/injector.js` にまとまっています。
+- アイコンは `extension/icons/` フォルダにあり、`manifest.json` から参照されています。

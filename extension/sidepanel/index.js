@@ -25,6 +25,7 @@ const ui = {
 
 let recognition = null;
 let recognizing = false;
+let micPermissionGranted = false;
 
 init();
 
@@ -277,7 +278,31 @@ function setupVoiceRecognition() {
   }
 }
 
-function appendTranscript(text) {
+async function ensureMicrophonePermission() {
+  if (micPermissionGranted) {
+    return true;
+  }
+  const mediaDevices = navigator?.mediaDevices;
+  if (!mediaDevices?.getUserMedia) {
+    // Browser does not expose permissions API; assume allowed.
+    micPermissionGranted = true;
+    return true;
+  }
+  try {
+    const stream = await mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((track) => track.stop());
+    micPermissionGranted = true;
+    ui.voiceStatus.textContent = 'Voice input ready';
+    return true;
+  } catch (error) {
+    const message = error?.name === 'NotAllowedError'
+      ? 'Microphone access was blocked. Enable it in Chrome settings and try again.'
+      : `Microphone error: ${error.message}`;
+    ui.voiceStatus.textContent = message;
+    ui.voiceButton.textContent = 'Start Voice';
+    return false;
+  }
+}function appendTranscript(text) {
   if (!text) {
     return;
   }
@@ -285,10 +310,25 @@ function appendTranscript(text) {
   ui.prompt.value = current ? `${current}\n${text}` : text;
 }
 
-function toggleVoice() {
+async function toggleVoice() {
   if (!recognition) {
     return;
   }
+  if (recognizing) {
+    recognition.stop();
+    return;
+  }
+  const permissionOk = await ensureMicrophonePermission();
+  if (!permissionOk) {
+    return;
+  }
+  try {
+    recognition.start();
+  } catch (error) {
+    ui.voiceStatus.textContent = `Could not start: ${error.message}`;
+    ui.voiceButton.textContent = 'Start Voice';
+  }
+}
   if (recognizing) {
     recognition.stop();
   } else {
@@ -367,6 +407,11 @@ function renderDebugLogs() {
   ui.debugOutput.textContent = lines.join('\n\n');
   ui.debugOutput.scrollTop = ui.debugOutput.scrollHeight;
 }
+
+
+
+
+
 
 
 

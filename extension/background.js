@@ -1,60 +1,8 @@
-﻿const LLM_TARGETS = {
-  chatgpt: {
-    id: 'chatgpt',
-    label: 'ChatGPT',
-    newChatUrl: 'https://chatgpt.com/',
-    urlPatterns: ['https://chat.openai.com/*', 'https://chatgpt.com/*'],
-    requiresFreshTab: true
-  },
-  manus: {
-    id: 'manus',
-    label: 'Manus',
-    newChatUrl: 'https://manus.im/app',
-    urlPatterns: [
-      'https://manus.im/*',
-      'https://*.manus.im/*',
-      'https://app.manus.ai/*',
-      'https://*.manus.ai/*',
-      'https://*.manus.app/*'
-    ],
-    requiresFreshTab: true
-  },
-  grok: {
-    id: 'grok',
-    label: 'Grok',
-    newChatUrl: 'https://grok.com/',
-    urlPatterns: [
-      'https://grok.com/*',
-      'https://*.grok.com/*',
-      'https://grok.x.ai/*',
-      'https://*.grok.x.ai/*',
-      'https://chat.x.ai/*',
-      'https://*.x.ai/*'
-    ],
-    requiresFreshTab: true
-  }
-};
+﻿importScripts('config/targets.js');
 
-const TARGET_SCRIPT_MAP = {
-  chatgpt: 'content/chatgpt.js',
-  manus: 'content/manus.js',
-  grok: 'content/grok.js'
-};
-
-const DOM_READY_SELECTORS = {
-  chatgpt: 'div.ProseMirror, textarea#prompt-textarea, div[contenteditable="true"]',
-  manus: 'textarea[data-testid="prompt-input"], div[contenteditable="true"]',
-  grok: 'div.tiptap.ProseMirror, textarea[placeholder*="何を知りたい"], div[contenteditable="true"]'
-};
-
-const DOM_READY_TIMEOUTS = {
-  chatgpt: 15000,
-  manus: 60000,
-  grok: 60000
-};
-
+const TARGETS = self.TARGET_CONFIG || {};
 const DEFAULT_SETTINGS = {
-  enabledTargets: Object.keys(LLM_TARGETS),
+  enabledTargets: Object.keys(TARGETS),
   sendDelayMs: 700,
   voiceInput: false,
   debugLogging: false
@@ -101,7 +49,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const settings = await getCurrentSettings();
       sendResponse({
         settings,
-        targets: Object.values(LLM_TARGETS)
+        targets: Object.values(TARGETS).map(({ id, label }) => ({ id, label }))
       });
     })();
     return true;
@@ -165,7 +113,7 @@ async function handleBroadcast(message) {
   });
 
   for (const targetId of targetIds) {
-    const target = LLM_TARGETS[targetId];
+    const target = TARGETS[targetId];
     if (!target) {
       const update = { targetId, status: 'skipped', reason: 'unknown_target' };
       statusUpdates.push(update);
@@ -178,15 +126,16 @@ async function handleBroadcast(message) {
     addDebugLog('broadcast:target:start', { targetId });
 
     try {
-      const tab = await ensureTabForTarget(target, windowId);
+      const tab = await createFreshTab(target, windowId);
       addDebugLog('broadcast:target:tab', { targetId, tabId: tab.id, url: tab.url });
       await waitForDomReady(tab.id, targetId);
-      await injectContentScripts(tab.id, targetId);
+      await injectContentScript(tab.id);
       await waitForAdapter(tab.id, targetId);
       const response = await chrome.tabs.sendMessage(tab.id, {
         type: 'llm-commander:submit',
         targetId,
-        prompt
+        prompt,
+        config: target
       });
       const update = {
         targetId,
@@ -216,23 +165,7 @@ function broadcastStatus(update) {
   chrome.runtime.sendMessage({ type: 'prompt:status', ...update }).catch(() => {});
 }
 
-async function ensureTabForTarget(target, requestedWindowId) {
-  let tabToUse = null;
-  if (!target.requiresFreshTab) {
-    const existingTabs = await chrome.tabs.query({ url: target.urlPatterns });
-    tabToUse = existingTabs.find((tab) => {
-      if (requestedWindowId && tab.windowId !== requestedWindowId) {
-        return false;
-      }
-      return isValidTargetUrl(target.id, tab.url || '');
-    });
-  }
-
-  if (tabToUse) {
-    addDebugLog('tab:reuse', { targetId: target.id, tabId: tabToUse.id });
-    return tabToUse;
-  }
-
+async function createFreshTab(target, requestedWindowId) {
   const createProperties = {
     url: target.newChatUrl,
     active: false
@@ -247,52 +180,142 @@ async function ensureTabForTarget(target, requestedWindowId) {
 }
 
 async function waitForDomReady(tabId, targetId) {
-  const selector = DOM_READY_SELECTORS[targetId];
-  if (!selector) {
-    return;
-  }
-  const maxWaitMs = DOM_READY_TIMEOUTS[targetId] ?? 15000;
+  const target = TARGETS[targetId] || {};
+  const primarySelectors = Array.isArray(target.domReadySelectors) ? target.domReadySelectors : [];
+  const fallbackSelectors = Array.isArray(target.domReadyFallbackSelectors) ? target.domReadyFallbackSelectors : [];
+  const blockerSelectors = Array.isArray(target.domBlockerSelectors) ? target.domBlockerSelectors : [];
+  const timeout = target.domReadyTimeout || 15000;
   const intervalMs = 400;
-  const deadline = Date.now() + maxWaitMs;
+  const deadline = Date.now() + timeout;
+  const needsProbe = primarySelectors.length > 0 || fallbackSelectors.length > 0 || blockerSelectors.length > 0;
+
   while (Date.now() < deadline) {
+    let tab;
     try {
-      const results = await chrome.scripting.executeScript({
-        target: { tabId, allFrames: true },
-        func: (sel) => {
-          try {
-            return Boolean(document.querySelector(sel));
-          } catch (error) {
-            return false;
-          }
-        },
-        args: [selector]
-      });
-      if (results?.some((frame) => frame.result)) {
-        addDebugLog('dom:ready', { targetId, tabId });
+      tab = await chrome.tabs.get(tabId);
+    } catch (error) {
+      throw new Error(`tab_missing:${targetId}`);
+    }
+
+    if (!isValidTargetUrl(targetId, tab.url)) {
+      addDebugLog('dom:invalid-url', { targetId, tabId, url: tab.url });
+      throw new Error(`navigation_blocked:${targetId}`);
+    }
+
+    if (!needsProbe) {
+      if (tab.status === 'complete') {
+        addDebugLog('dom:ready', { targetId, tabId, mode: 'no-selectors' });
         return;
       }
-    } catch (error) {
-      addDebugLog('dom:probe:error', { targetId, tabId, error: error.message });
+    } else {
+      try {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId, allFrames: true },
+          func: (primary, fallback, blockers) => {
+            const probe = (selectors) => {
+              if (!Array.isArray(selectors) || selectors.length === 0) {
+                return null;
+              }
+              for (const selector of selectors) {
+                try {
+                  const element = document.querySelector(selector);
+                  if (element) {
+                    return selector;
+                  }
+                } catch (error) {
+                  // ignore invalid selectors
+                }
+              }
+              return null;
+            };
+
+            const blockerSelector = probe(blockers);
+            const readySelector = probe(primary);
+            const fallbackSelector = readySelector ? null : probe(fallback);
+
+            return {
+              blockerSelector,
+              readySelector,
+              fallbackSelector,
+              title: document.title,
+              readyState: document.readyState
+            };
+          },
+          args: [primarySelectors, fallbackSelectors, blockerSelectors]
+        });
+
+        const summary = results.reduce(
+          (acc, frame) => {
+            const result = frame?.result;
+            if (!result) {
+              return acc;
+            }
+            if (!acc.blockerSelector && result.blockerSelector) {
+              acc.blockerSelector = result.blockerSelector;
+            }
+            if (!acc.readySelector && result.readySelector) {
+              acc.readySelector = result.readySelector;
+            }
+            if (!acc.fallbackSelector && result.fallbackSelector) {
+              acc.fallbackSelector = result.fallbackSelector;
+            }
+            if (!acc.title && result.title) {
+              acc.title = result.title;
+            }
+            if (!acc.readyState && result.readyState) {
+              acc.readyState = result.readyState;
+            }
+            return acc;
+          },
+          { blockerSelector: null, readySelector: null, fallbackSelector: null, title: null, readyState: null }
+        );
+
+        if (summary.title && summary.title.toLowerCase().includes('just a moment')) {
+          addDebugLog('dom:blocker', { targetId, tabId, title: summary.title });
+          throw new Error(`dom_blocker:${targetId}`);
+        }
+
+        if (summary.blockerSelector) {
+          addDebugLog('dom:blocker', { targetId, tabId, selector: summary.blockerSelector });
+          throw new Error(`dom_blocker:${targetId}`);
+        }
+
+        if (summary.readySelector) {
+          addDebugLog('dom:ready', { targetId, tabId, selector: summary.readySelector });
+          return;
+        }
+
+        if (summary.fallbackSelector) {
+          addDebugLog('dom:ready:fallback', { targetId, tabId, selector: summary.fallbackSelector });
+          return;
+        }
+
+        if (summary.readyState === 'complete' && primarySelectors.length === 0) {
+          addDebugLog('dom:ready', { targetId, tabId, mode: 'readyState' });
+          return;
+        }
+      } catch (error) {
+        if (typeof error?.message === 'string' && error.message.startsWith('dom_blocker:')) {
+          throw error;
+        }
+        addDebugLog('dom:probe:error', { targetId, tabId, error: error.message });
+      }
     }
+
     await delay(intervalMs);
   }
+
   throw new Error(`dom_timeout:${targetId}`);
 }
-
-async function injectContentScripts(tabId, targetId) {
-  const files = ['content/shared.js'];
-  const targetScript = TARGET_SCRIPT_MAP[targetId];
-  if (targetScript) {
-    files.push(targetScript);
-  }
+async function injectContentScript(tabId) {
   try {
     await chrome.scripting.executeScript({
       target: { tabId },
-      files
+      files: ['content/injector.js']
     });
-    addDebugLog('adapter:inject', { targetId, tabId });
+    addDebugLog('adapter:inject', { tabId });
   } catch (error) {
-    addDebugLog('adapter:inject:error', { targetId, tabId, error: error.message });
+    addDebugLog('adapter:inject:error', { tabId, error: error.message });
   }
 }
 
@@ -346,7 +369,7 @@ async function getCurrentSettings() {
 function normaliseSettings(input) {
   const settings = { ...DEFAULT_SETTINGS, ...(input || {}) };
   settings.enabledTargets = Array.isArray(settings.enabledTargets)
-    ? settings.enabledTargets.filter((id) => LLM_TARGETS[id])
+    ? settings.enabledTargets.filter((id) => TARGETS[id])
     : DEFAULT_SETTINGS.enabledTargets.slice();
   if (settings.enabledTargets.length === 0) {
     settings.enabledTargets = DEFAULT_SETTINGS.enabledTargets.slice();

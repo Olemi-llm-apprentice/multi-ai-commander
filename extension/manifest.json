@@ -1,4 +1,4 @@
-{
+﻿{
   "manifest_version": 3,
   "name": "Multi AI Commander",
   "version": "0.1.0",
@@ -39,38 +39,5 @@
   },
   "action": {
     "default_title": "Multi AI Commander"
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://chat.openai.com/*",
-        "https://chatgpt.com/*"
-      ],
-      "js": ["content/shared.js", "content/chatgpt.js"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": [
-        "https://manus.im/*",
-        "https://*.manus.im/*",
-        "https://app.manus.ai/*",
-        "https://*.manus.ai/*"
-      ],
-      "js": ["content/shared.js", "content/manus.js"],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": [
-        "https://grok.com/*",
-        "https://*.grok.com/*",
-        "https://grok.x.ai/*",
-        "https://*.grok.x.ai/*",
-        "https://chat.x.ai/*",
-        "https://*.x.ai/*"
-      ],
-      "js": ["content/shared.js", "content/grok.js"],
-      "run_at": "document_idle"
-    }
-  ]
+  }
 }
-

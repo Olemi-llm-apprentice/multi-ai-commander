@@ -1,4 +1,4 @@
-﻿importScripts('config/targets.js');
+importScripts('config/targets.js');
 
 const TARGETS = self.TARGET_CONFIG || {};
 const DEFAULT_SETTINGS = {
@@ -12,6 +12,20 @@ let runtimeSettings = { ...DEFAULT_SETTINGS };
 const debugLogs = [];
 const DEBUG_LOG_LIMIT = 200;
 
+
+function openSidePanelForWindow(windowId) {
+  if (typeof windowId !== 'number') {
+    return;
+  }
+  try {
+    chrome.sidePanel.open({ windowId }).catch((error) => {
+      addDebugLog('sidepanel:open:error', { windowId, message: error?.message });
+    });
+  } catch (error) {
+    addDebugLog('sidepanel:open:error', { windowId, message: error?.message });
+  }
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
   const stored = await chrome.storage.sync.get('settings');
   if (!stored.settings) {
@@ -22,21 +36,26 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 });
 
-chrome.action.onClicked.addListener(async (tab) => {
-  if (!tab.windowId) {
+chrome.action.onClicked.addListener((tab) => {
+  if (!tab || typeof tab.windowId !== 'number') {
     return;
   }
-  await chrome.sidePanel.open({ windowId: tab.windowId });
+  openSidePanelForWindow(tab.windowId);
 });
 
-chrome.commands.onCommand.addListener(async (command) => {
+chrome.commands.onCommand.addListener((command) => {
   if (command !== 'toggle-side-panel') {
     return;
   }
-  const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  if (activeTab?.windowId) {
-    await chrome.sidePanel.open({ windowId: activeTab.windowId });
-  }
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+    if (!Array.isArray(tabs) || tabs.length === 0) {
+      return;
+    }
+    const tab = tabs[0];
+    if (tab && typeof tab.windowId === 'number') {
+      openSidePanelForWindow(tab.windowId);
+    }
+  });
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

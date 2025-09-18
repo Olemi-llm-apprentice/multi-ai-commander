@@ -63,7 +63,7 @@ async function loadSettings() {
     applySettingsToUI();
     setupVoiceRecognition();
   } catch (error) {
-    ui.progress.textContent = `ê›íËÇÃì«Ç›çûÇ›Ç…é∏îsÇµÇ‹ÇµÇΩ: ${error.message}`;
+    ui.progress.textContent = `Failed to load settings: ${error.message}`;
   }
 }
 
@@ -86,7 +86,7 @@ function applySettingsToUI() {
   ui.settingVoice.checked = Boolean(state.settings.voiceInput);
   ui.settingDelay.value = state.settings.sendDelayMs;
   if (state.settings.voiceInput && recognition) {
-    ui.voiceStatus.textContent = 'âπê∫ì¸óÕë“ã@íÜ';
+    ui.voiceStatus.textContent = 'Voice input ready';
   }
 }
 
@@ -106,12 +106,12 @@ async function onSendClick() {
   }
   const prompt = ui.prompt.value.trim();
   if (!prompt) {
-    ui.progress.textContent = 'ÉvÉçÉìÉvÉgÇì¸óÕÇµÇƒÇ≠ÇæÇ≥Ç¢ÅB';
+    ui.progress.textContent = 'Please enter a prompt.';
     return;
   }
   const targetIds = state.settings.enabledTargets.slice();
   if (targetIds.length === 0) {
-    ui.progress.textContent = 'ëóêMêÊÇ1Ç¬à»è„ëIëÇµÇƒÇ≠ÇæÇ≥Ç¢ÅB';
+    ui.progress.textContent = 'Select at least one target.';
     return;
   }
 
@@ -120,7 +120,7 @@ async function onSendClick() {
 
   try {
     const currentWindow = await chrome.windows.getCurrent();
-    const response = await chrome.runtime.sendMessage({
+    await chrome.runtime.sendMessage({
       type: 'prompt:broadcast',
       prompt,
       targetIds,
@@ -129,11 +129,8 @@ async function onSendClick() {
         sendDelayMs: state.settings.sendDelayMs
       }
     });
-    if (!response?.ok && Object.keys(state.statuses).length === 0) {
-      ui.progress.textContent = 'ëóêMèàóùÇ≈ÉGÉâÅ[Ç™î≠ê∂ÇµÇ‹ÇµÇΩÅB';
-    }
   } catch (error) {
-    ui.progress.textContent = `ëóêMÇ…é∏îsÇµÇ‹ÇµÇΩ: ${error.message}`;
+    ui.progress.textContent = `Failed to send: ${error.message}`;
   } finally {
     setSending(false);
   }
@@ -143,7 +140,7 @@ function setSending(isSending) {
   ui.sendButton.disabled = isSending;
   ui.voiceButton.disabled = isSending;
   if (isSending) {
-    ui.progress.textContent = 'ëóêMíÜ...';
+    ui.progress.textContent = 'Sending...';
   } else if (Object.keys(state.statuses).length === 0) {
     ui.progress.textContent = '';
   }
@@ -170,15 +167,15 @@ function renderStatus() {
 function formatStatus(status, reason) {
   switch (status) {
     case 'starting':
-      return 'ëóêMèÄîıíÜ';
+      return 'Preparing';
     case 'success':
-      return 'ëóêMê¨å˜';
+      return 'Sent';
     case 'failed':
-      return reason ? `é∏îs (${reason})` : 'é∏îs';
+      return reason ? `Failed (${reason})` : 'Failed';
     case 'skipped':
-      return reason ? `ÉXÉLÉbÉv (${reason})` : 'ÉXÉLÉbÉv';
+      return reason ? `Skipped (${reason})` : 'Skipped';
     default:
-      return status || 'èÛë‘ïsñæ';
+      return status || 'Unknown';
   }
 }
 
@@ -186,7 +183,7 @@ function setupVoiceRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     ui.voiceButton.disabled = true;
-    ui.voiceStatus.textContent = 'âπê∫ì¸óÕÇÕóòópÇ≈Ç´Ç‹ÇπÇÒ';
+    ui.voiceStatus.textContent = 'Voice input unavailable';
     return;
   }
 
@@ -197,20 +194,20 @@ function setupVoiceRecognition() {
 
   recognition.onstart = () => {
     recognizing = true;
-    ui.voiceStatus.textContent = 'ò^âπíÜ...';
-    ui.voiceButton.textContent = 'Å° í‚é~';
+    ui.voiceStatus.textContent = 'Listening...';
+    ui.voiceButton.textContent = 'Á¨ÜÔ£∞ Stop';
   };
 
   recognition.onend = () => {
     recognizing = false;
-    ui.voiceButton.textContent = '?? âπê∫';
-    ui.voiceStatus.textContent = state.settings.voiceInput ? 'âπê∫ì¸óÕë“ã@íÜ' : '';
+    ui.voiceButton.textContent = 'ÓÅûÁóî Voice';
+    ui.voiceStatus.textContent = state.settings.voiceInput ? 'Voice input ready' : '';
   };
 
   recognition.onerror = (event) => {
     recognizing = false;
-    ui.voiceStatus.textContent = `ÉGÉâÅ[: ${event.error}`;
-    ui.voiceButton.textContent = '?? âπê∫';
+    ui.voiceStatus.textContent = `Error: ${event.error}`;
+    ui.voiceButton.textContent = 'ÓÅûÁóî Voice';
   };
 
   recognition.onresult = (event) => {
@@ -228,12 +225,12 @@ function setupVoiceRecognition() {
       appendTranscript(finalText);
     }
     if (interim) {
-      ui.voiceStatus.textContent = `ò^âπíÜ... ${interim}`;
+      ui.voiceStatus.textContent = `Listening... ${interim}`;
     }
   };
 
   if (state.settings.voiceInput) {
-    ui.voiceStatus.textContent = 'âπê∫ì¸óÕë“ã@íÜ';
+    ui.voiceStatus.textContent = 'Voice input ready';
   }
 }
 
@@ -255,7 +252,7 @@ function toggleVoice() {
     try {
       recognition.start();
     } catch (error) {
-      ui.voiceStatus.textContent = `äJénÇ≈Ç´Ç‹ÇπÇÒÇ≈ÇµÇΩ: ${error.message}`;
+      ui.voiceStatus.textContent = `Could not start: ${error.message}`;
     }
   }
 }
@@ -275,7 +272,7 @@ function onSettingsDialogClose() {
   state.settings.sendDelayMs = Number(ui.settingDelay.value) || 0;
   persistSettings();
   if (state.settings.voiceInput && recognition && !recognizing) {
-    ui.voiceStatus.textContent = 'âπê∫ì¸óÕë“ã@íÜ';
+    ui.voiceStatus.textContent = 'Voice input ready';
   } else if (!state.settings.voiceInput && !recognizing) {
     ui.voiceStatus.textContent = '';
   }

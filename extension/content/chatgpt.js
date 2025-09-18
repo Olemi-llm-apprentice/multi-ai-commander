@@ -9,14 +9,12 @@
   const INPUT_SELECTORS = [
     'textarea[data-id="root"]',
     'textarea[data-id="prompt-textarea"]',
-    'textarea[placeholder*="メッセージ"]',
     'textarea[placeholder*="message"]',
     'textarea'
   ];
 
   const SEND_SELECTORS = [
     'button[data-testid="send-button"]',
-    'button[aria-label*="送信"]',
     'button[aria-label*="Send"]'
   ];
 

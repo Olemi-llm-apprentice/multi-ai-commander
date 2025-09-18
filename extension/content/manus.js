@@ -8,7 +8,6 @@
 
   const INPUT_SELECTORS = [
     'textarea[data-testid="prompt-input"]',
-    'textarea[placeholder*="âΩÇ≈Ç‡"]',
     'textarea[placeholder*="Ask"]',
     'textarea'
   ];
@@ -16,7 +15,6 @@
   const SEND_SELECTORS = [
     'button[data-testid="send-button"]',
     'button[type="submit"]',
-    'button[aria-label*="ëóêM"]',
     'button[aria-label*="Send"]'
   ];
 

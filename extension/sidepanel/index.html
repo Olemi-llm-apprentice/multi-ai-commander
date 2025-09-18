@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,38 +9,38 @@
   <body>
     <header>
       <h1>Multi AI Commander</h1>
-      <button id="open-settings" title="İ’è‚ğŠJ‚­">??</button>
+      <button id="open-settings" title="Open settings">âš™ï¸</button>
     </header>
     <main>
       <section class="prompt-section">
-        <textarea id="prompt" rows="6" placeholder="‚±‚±‚Éƒvƒƒ“ƒvƒg‚ğ“ü—Íi‰¹º“ü—Í‚à‰Âj"></textarea>
+        <textarea id="prompt" rows="6" placeholder="Type your prompt here (voice input supported)"></textarea>
         <div class="prompt-controls">
-          <button id="voice-button" class="secondary" title="‰¹º“ü—Í‚ğŠJn">?? ‰¹º</button>
+          <button id="voice-button" class="secondary" title="Start voice input">ğŸ¤ Voice</button>
           <span id="voice-status" class="voice-status"></span>
         </div>
       </section>
       <section class="targets-section">
-        <h2>‘—Mæ</h2>
+        <h2>Targets</h2>
         <div id="targets-container" class="targets-container"></div>
       </section>
       <section class="actions-section">
-        <button id="send-button" class="primary">‘—M</button>
+        <button id="send-button" class="primary">Send</button>
         <div id="progress" class="progress"></div>
       </section>
     </main>
     <dialog id="settings-dialog">
       <form method="dialog">
-        <h2>İ’è</h2>
+        <h2>Settings</h2>
         <label class="inline">
-          <input type="checkbox" id="setting-voice" /> ‰¹º“ü—Í‚ğƒfƒtƒHƒ‹ƒg‚Å—LŒø‚É‚·‚é
+          <input type="checkbox" id="setting-voice" /> Enable voice input by default
         </label>
         <label class="inline">
-          ‘—MŠÔŠu (ms)
+          Delay between sends (ms)
           <input type="number" id="setting-delay" min="0" step="100" />
         </label>
         <menu>
-          <button value="cancel">ƒLƒƒƒ“ƒZƒ‹</button>
-          <button value="ok">•Û‘¶</button>
+          <button value="cancel">Cancel</button>
+          <button value="ok">Save</button>
         </menu>
       </form>
     </dialog>

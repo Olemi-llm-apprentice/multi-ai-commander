@@ -1,29 +1,29 @@
-# Multi AI Commander (ChromeŠg’£ ‰º‘‚«)
+# Multi AI Commander (Chrome extension prototype)
 
-‚±‚ÌƒfƒBƒŒƒNƒgƒŠ‚É‚ÍA•¡”‚ÌLLMƒ^ƒu‚Ö“¯‚Éƒvƒƒ“ƒvƒg‚ğ‘—M‚·‚é‚½‚ß‚ÌChromeŠg’£‹@”\ƒvƒƒgƒ^ƒCƒv‚ªŠÜ‚Ü‚ê‚Ä‚¢‚Ü‚·B
+This repository contains a Chrome extension prototype that broadcasts prompts to multiple LLM tabs from a single side panel.
 
-## \¬
+## Structure
 
-- `extension/manifest.json` ? Šg’£‹@”\‚Ìƒ}ƒjƒtƒFƒXƒg
-- `extension/background.js` ? ƒoƒbƒNƒOƒ‰ƒEƒ“ƒh(Service Worker)‚Åƒ^ƒu¶¬‚Æƒuƒ[ƒhƒLƒƒƒXƒg‚ğ§Œä
-- `extension/sidepanel/` ? ƒTƒCƒhƒpƒlƒ‹UI‚Æ‰¹º“ü—ÍEİ’èü‚è
-- `extension/content/` ? ChatGPT / Manus / Grok Œü‚¯‘€ìƒAƒ_ƒvƒ^
+- `extension/manifest.json` â€” Manifest definition
+- `extension/background.js` â€” Background service worker controlling tab lifecycle and broadcast queue
+- `extension/sidepanel/` â€” Side panel UI, settings, and speech input handling
+- `extension/content/` â€” Site-specific adapters for ChatGPT / Manus / Grok
 
-## ƒZƒbƒgƒAƒbƒvè‡
+## Setup
 
-1. Chrome‚Å `chrome://extensions/` ‚ğŠJ‚«A‰Eã‚Ìuƒfƒxƒƒbƒp[ƒ‚[ƒhv‚ğƒIƒ“
-2. uƒpƒbƒP[ƒW‰»‚³‚ê‚Ä‚¢‚È‚¢Šg’£‹@”\‚ğ“Ç‚İ‚Şv‚©‚çA‚±‚ÌƒvƒƒWƒFƒNƒg‚Ì `extension` ƒtƒHƒ‹ƒ_‚ğ‘I‘ğ
-3. ‘ÎÛLLMƒTƒCƒg‚ÉƒƒOƒCƒ“‚µ‚Ä‚¨‚«AƒzƒbƒgƒL[ `Ctrl+Shift+Y` ‚ÅƒTƒCƒhƒpƒlƒ‹‚ğ•\¦
-4. ƒvƒƒ“ƒvƒg‚ğ“ü—Í‚µ‚Ä‘—MæLLM‚ğ‘I‘ğ‚·‚é‚ÆA‘Î‰ƒ^ƒu‚ªƒoƒbƒNƒOƒ‰ƒEƒ“ƒh‚Åì¬/Ä—˜—p‚³‚ê‚Ä‘—M‚³‚ê‚Ü‚·
+1. Open `chrome://extensions/`, enable Developer mode
+2. Click "Load unpacked" and select the `extension` folder in this project
+3. Ensure you are logged in to each target LLM site, then use `Ctrl+Shift+Y` to toggle the side panel
+4. Enter a prompt, choose target LLMs, and send; the extension creates or reuses tabs in the current window and submits in the background
 
-## Šù’m‚Ì’ˆÓ“_
+## Notes
 
-- Manus/Grok‚ÌDOM\‘¢‚Í•p”É‚É•Ï‚í‚é‚½‚ßA`extension/content/*.js` ‚ÌƒZƒŒƒNƒ^‚ğŠÂ‹«‚É‡‚í‚¹‚Ä’²®‚·‚é•K—v‚ª‚ ‚è‚Ü‚·
-- ”ñƒAƒNƒeƒBƒuƒ^ƒu‚Å‚Ì“ü—Í”½‰f‚ª’x‚¢ê‡‚ÍA`extension/background.js` ‚ÌƒfƒBƒŒƒCİ’è‚ğ’²®‚µ‚Ä‚­‚¾‚³‚¢
-- ‰¹º“ü—Í‚ÍChrome‚ÌWeb Speech API‚ÉˆË‘¶‚µ‚Ü‚·Bƒ}ƒCƒNŒ ŒÀ‚ªƒuƒƒbƒN‚³‚ê‚Ä‚¢‚éê‡‚Íƒ{ƒ^ƒ“‚ª–³Œø‰»‚³‚ê‚Ü‚·
+- Manus/Grok change their DOM frequently; adjust selectors under `extension/content/*.js` if the automation breaks
+- If background tab submission feels slow, tune the delay in `extension/background.js`
+- Speech input relies on Chrome's Web Speech API; the button will be disabled if microphone access is blocked
 
-## ¡Œã‚ÌŠg’£Œó•â
+## Future work
 
-- ‘—M¸”s‚ÌƒŠƒgƒ‰ƒCUIAƒŒƒXƒ|ƒ“ƒX–{•¶‚ÌƒTƒ}ƒŠ[•\¦
-- Claude, Google AI StudioŒü‚¯ƒAƒ_ƒvƒ^‚Ì’Ç‰Á
-- ƒvƒƒ“ƒvƒgƒeƒ“ƒvƒŒ[ƒg‚âƒ^ƒOŠÇ—‚È‚Ç‚ÌŠg’£İ’è
+- Retry UI and inline response summaries
+- Additional adapters (Claude, Google AI Studio, etc.)
+- Prompt templates, tagging, and richer configuration

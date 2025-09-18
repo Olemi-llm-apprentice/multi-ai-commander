@@ -15,7 +15,6 @@
 
   const SEND_SELECTORS = [
     'button[data-testid="send-button"]',
-    'button[aria-label*="‘—M"]',
     'button[aria-label*="Send"]'
   ];
 

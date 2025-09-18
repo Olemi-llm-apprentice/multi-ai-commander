@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Multi AI Commander",
   "version": "0.1.0",
-  "description": "1つの入力から複数LLMへプロンプトをブロードキャストするサイドパネル拡張機能。",
+  "description": "Broadcast prompts to multiple LLM tabs from a single side panel.",
   "permissions": [
     "storage",
     "tabs",
@@ -19,7 +19,7 @@
   ],
   "background": {
     "service_worker": "background.js"
-  ],
+  },
   "side_panel": {
     "default_path": "sidepanel/index.html"
   },
@@ -28,7 +28,7 @@
       "suggested_key": {
         "default": "Ctrl+Shift+Y"
       },
-      "description": "サイドパネルを開閉"
+      "description": "Toggle side panel"
     }
   },
   "action": {

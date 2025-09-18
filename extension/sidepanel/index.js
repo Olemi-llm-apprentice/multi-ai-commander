@@ -1,4 +1,4 @@
-const state = {
+﻿const state = {
   targets: [],
   settings: null,
   statuses: {},
@@ -238,19 +238,19 @@ function setupVoiceRecognition() {
   recognition.onstart = () => {
     recognizing = true;
     ui.voiceStatus.textContent = 'Listening...';
-    ui.voiceButton.textContent = '隨・｣ｰ Stop';
+    ui.voiceButton.textContent = 'Stop Voice';
   };
 
   recognition.onend = () => {
     recognizing = false;
-    ui.voiceButton.textContent = '﨟樒濫 Voice';
+    ui.voiceButton.textContent = 'Start Voice';
     ui.voiceStatus.textContent = state.settings.voiceInput ? 'Voice input ready' : '';
   };
 
   recognition.onerror = (event) => {
     recognizing = false;
     ui.voiceStatus.textContent = `Error: ${event.error}`;
-    ui.voiceButton.textContent = '﨟樒濫 Voice';
+    ui.voiceButton.textContent = 'Start Voice';
   };
 
   recognition.onresult = (event) => {
@@ -367,4 +367,10 @@ function renderDebugLogs() {
   ui.debugOutput.textContent = lines.join('\n\n');
   ui.debugOutput.scrollTop = ui.debugOutput.scrollHeight;
 }
+
+
+
+
+
+
 

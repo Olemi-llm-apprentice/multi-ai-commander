@@ -1,43 +1,54 @@
 ﻿{
-  "manifest_version": 3,
-  "name": "Multi AI Commander",
-  "version": "0.1.0",
-  "description": "Broadcast prompts to multiple LLM tabs from a single side panel.",
-  "permissions": [
-    "storage",
-    "tabs",
-    "scripting",
-    "sidePanel"
-  ],
-  "host_permissions": [
-    "https://chat.openai.com/*",
-    "https://chatgpt.com/*",
-    "https://manus.im/*",
-    "https://*.manus.im/*",
-    "https://app.manus.ai/*",
-    "https://*.manus.ai/*",
-    "https://grok.com/*",
-    "https://*.grok.com/*",
-    "https://grok.x.ai/*",
-    "https://*.grok.x.ai/*",
-    "https://chat.x.ai/*",
-    "https://*.x.ai/*"
-  ],
-  "background": {
-    "service_worker": "background.js"
-  },
-  "side_panel": {
-    "default_path": "sidepanel/index.html"
-  },
-  "commands": {
-    "toggle-side-panel": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+Y"
-      },
-      "description": "Toggle side panel"
-    }
-  },
-  "action": {
-    "default_title": "Multi AI Commander"
-  }
+    "manifest_version":  3,
+    "name":  "Multi AI Commander",
+    "version":  "0.1.0",
+    "description":  "Broadcast prompts to multiple LLM tabs from a single side panel.",
+    "permissions":  [
+                        "storage",
+                        "tabs",
+                        "scripting",
+                        "sidePanel"
+                    ],
+    "host_permissions":  [
+                             "https://chat.openai.com/*",
+                             "https://chatgpt.com/*",
+                             "https://manus.im/*",
+                             "https://*.manus.im/*",
+                             "https://app.manus.ai/*",
+                             "https://*.manus.ai/*",
+                             "https://grok.com/*",
+                             "https://*.grok.com/*",
+                             "https://grok.x.ai/*",
+                             "https://*.grok.x.ai/*",
+                             "https://chat.x.ai/*",
+                             "https://*.x.ai/*"
+                         ],
+    "background":  {
+                       "service_worker":  "background.js"
+                   },
+    "side_panel":  {
+                       "default_path":  "sidepanel/index.html"
+                   },
+    "commands":  {
+                     "toggle-side-panel":  {
+                                               "suggested_key":  {
+                                                                     "default":  "Ctrl+Shift+Y"
+                                                                 },
+                                               "description":  "Toggle side panel"
+                                           }
+                 },
+    "action":  {
+                   "default_title":  "Multi AI Commander",
+                   "default_icon":  {
+                                        "16":  "icons/icon16.png",
+                                        "32":  "icons/icon32.png",
+                                        "48":  "icons/icon48.png"
+                                    }
+               },
+    "icons":  {
+                  "16":  "icons/icon16.png",
+                  "32":  "icons/icon32.png",
+                  "48":  "icons/icon48.png",
+                  "128":  "icons/icon128.png"
+              }
 }
